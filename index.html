@@ -843,7 +843,7 @@
             const mainAppView = document.getElementById('main-app-view');
 
             // 若開發/測試預覽模式 (DEV_MODE) 為 "ON"，或是系統已被加入主畫面 (isStandalone)，皆直接進入主頁面
-            if (DEV_MODE === "OFF" || isStandalone()) {
+            if (DEV_MODE === "ON" || isStandalone()) {
                 pwaGuardView.classList.add('hidden');
                 mainAppView.classList.remove('hidden');
                 updateView();
