@@ -286,7 +286,7 @@
            - DEV_PREVIEW_MODE = true  (ON)  : 開啟測試預覽模式 (關閉強制加入主畫面選單，直接瀏覽內容)
            - DEV_PREVIEW_MODE = false (OFF) : 正式模式 (必須加入手機「主畫面」才能開啟瀏覽)
            ========================================================================== */
-        const DEV_PREVIEW_MODE = false; // ON 時改為 true，OFF 時改為 false
+        const DEV_PREVIEW_MODE = true; // ON 時改為 true，OFF 時改為 false
 
         // 攔截圖片與影片右鍵與長按選單行為
         document.addEventListener('contextmenu', function(e) {
@@ -545,6 +545,27 @@
             selectedDayId: 'day1'
         };
 
+        // 取得已刪除/劃掉行程的 ID 列表
+        function getDeletedItems() {
+            try {
+                return JSON.parse(localStorage.getItem('deleted_itinerary_items') || '[]');
+            } catch (e) {
+                return [];
+            }
+        }
+
+        // 切換行程刪除/復原狀態 (套用劃線斜線效果)
+        function toggleDeleteItem(itemId) {
+            let deleted = getDeletedItems();
+            if (deleted.includes(itemId)) {
+                deleted = deleted.filter(id => id !== itemId);
+            } else {
+                deleted.push(itemId);
+            }
+            localStorage.setItem('deleted_itinerary_items', JSON.stringify(deleted));
+            updateView();
+        }
+
         function toggleDarkMode() {
             const isDark = document.documentElement.classList.toggle('dark');
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
@@ -630,17 +651,22 @@
             lucide.createIcons();
         }
 
-        function renderItineraryItem(item) {
+        function renderItineraryItem(item, itemId) {
+            const isDeleted = getDeletedItems().includes(itemId);
+
             if (item.type === 'ticket') {
                 const s = ITEM_STYLES.ticket;
                 return `
-                <div class="flex items-center gap-4 p-4 bg-white/95 backdrop-blur-sm rounded-lg border-l-4 shadow-sm mb-3 ${s.border} active:bg-stone-50 transition-colors">
+                <div class="flex items-center gap-4 p-4 bg-white/95 backdrop-blur-sm rounded-lg border-l-4 shadow-sm mb-3 ${s.border} active:bg-stone-50 transition-all ${isDeleted ? 'opacity-50 grayscale bg-stone-100/70' : ''}">
                     <div class="flex items-center justify-center min-w-[50px]">
                         <div class="p-1.5 rounded-full bg-stone-50 ${s.color}">${getIcon(s.icon, "", 18)}</div>
                     </div>
                     <div class="flex-1">
-                        <h3 class="font-bold text-stone-800 text-lg leading-tight select-text">${item.title}</h3>
+                        <h3 class="font-bold text-stone-800 text-lg leading-tight select-text ${isDeleted ? 'line-through decoration-red-500 decoration-2 text-stone-400' : ''}">${item.title}</h3>
                     </div>
+                    <button onclick="toggleDeleteItem('${itemId}')" class="p-2 ${isDeleted ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-red-50 text-red-500 hover:bg-red-100'} rounded-full active:scale-95 shrink-0 transition-colors" title="${isDeleted ? '復原行程' : '刪除行程'}">
+                        ${getIcon(isDeleted ? 'rotate-ccw' : 'trash-2', "", 18)}
+                    </button>
                 </div>`;
             }
 
@@ -671,9 +697,9 @@
             const destinationUrl = item.mapUrl || getGoogleMapUrl(item.title);
 
             return `
-            <div class="flex gap-4 p-4 bg-white/95 backdrop-blur-sm rounded-lg border-l-4 shadow-sm mb-3 ${borderColor} active:bg-stone-50 transition-colors">
+            <div class="flex gap-4 p-4 bg-white/95 backdrop-blur-sm rounded-lg border-l-4 shadow-sm mb-3 ${borderColor} active:bg-stone-50 transition-all ${isDeleted ? 'opacity-50 grayscale bg-stone-100/70' : ''}">
                 <div class="flex flex-col items-center min-w-[50px]">
-                    ${item.time ? `<span class="text-sm font-bold text-stone-600 font-mono">${item.time}</span>` : ''}
+                    ${item.time ? `<span class="text-sm font-bold text-stone-600 font-mono ${isDeleted ? 'line-through text-stone-400' : ''}">${item.time}</span>` : ''}
                     <div class="mt-2 p-1.5 rounded-full bg-stone-50 ${iconColor}">
                         ${isEmoji ? '<span class="text-lg leading-none">⛩️</span>' : getIcon(iconName, "", 18)}
                     </div>
@@ -681,18 +707,21 @@
                 </div>
                 <div class="flex-1">
                     <div class="flex items-start justify-between">
-                        <h3 class="font-bold text-stone-800 text-lg leading-tight w-[calc(100%-70px)] sm:w-[calc(100%-110px)] select-text">${item.title}</h3>
-                        <div class="flex gap-2 shrink-0"> 
+                        <h3 class="font-bold text-stone-800 text-lg leading-tight w-[calc(100%-110px)] sm:w-[calc(100%-150px)] select-text ${isDeleted ? 'line-through decoration-red-500 decoration-2 text-stone-400' : ''}">${item.title}</h3>
+                        <div class="flex gap-1.5 shrink-0 items-center"> 
                             ${item.bookingUrl ? `<a href="${item.bookingUrl}" target="_blank" class="p-2 bg-red-50 text-red-600 rounded-full active:scale-95 shrink-0" title="資訊網站">${getIcon('circle-alert', "", 18)}</a>` : ''}
                             ${item.stampUrl ? `<a href="${item.stampUrl}" target="_blank" class="p-2 bg-rose-50 text-rose-600 rounded-full active:scale-95 shrink-0" title="紀念章網址">${getIcon('stamp', "", 18)}</a>` : ''}
                             ${item.weatherUrl ? `<a href="${item.weatherUrl}" target="_blank" class="p-2 bg-sky-50 text-sky-600 rounded-full active:scale-95 shrink-0" title="天氣資訊">${getIcon('cloud-sun', "", 18)}</a>` : ''}
                             ${item.routeUrl ? `<a href="${item.routeUrl}" target="_blank" class="p-2 bg-emerald-50 text-emerald-600 rounded-full active:scale-95 shrink-0" title="路線導航">${getIcon('route', "", 18)}</a>` : ''}
                             <a href="${destinationUrl}" target="_blank" class="p-2 bg-blue-50 text-blue-600 rounded-full active:scale-95 shrink-0" title="地圖導航">${getIcon('navigation', "", 18)}</a>
+                            <button onclick="toggleDeleteItem('${itemId}')" class="p-2 ${isDeleted ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-red-50 text-red-500 hover:bg-red-100'} rounded-full active:scale-95 shrink-0 transition-colors" title="${isDeleted ? '復原行程' : '刪除行程'}">
+                                ${getIcon(isDeleted ? 'rotate-ccw' : 'trash-2', "", 18)}
+                            </button>
                         </div>
                     </div>
-                    ${item.tag ? `<div class="mt-1"><span class="text-[10px] px-2 py-0.5 rounded-full border font-medium mr-2 ${isCollection ? "border-amber-400 text-amber-600 bg-amber-50" : "border-stone-300 text-stone-500"}">${item.tag}</span></div>` : ''}
-                    ${item.highlight ? `<div class="mt-2 inline-block px-3 py-1 bg-red-50 text-red-600 text-xs rounded-md font-bold select-text">★ ${item.highlight}</div>` : ''}
-                    ${item.note ? `<div class="mt-2 text-sm text-stone-600 leading-relaxed bg-stone-50 p-3 rounded border border-stone-100 whitespace-pre-line select-text">${item.note}</div>` : ''}
+                    ${item.tag ? `<div class="mt-1"><span class="text-[10px] px-2 py-0.5 rounded-full border font-medium mr-2 ${isCollection ? "border-amber-400 text-amber-600 bg-amber-50" : "border-stone-300 text-stone-500"} ${isDeleted ? 'line-through opacity-70' : ''}">${item.tag}</span></div>` : ''}
+                    ${item.highlight ? `<div class="mt-2 inline-block px-3 py-1 bg-red-50 text-red-600 text-xs rounded-md font-bold select-text ${isDeleted ? 'line-through opacity-70' : ''}">★ ${item.highlight}</div>` : ''}
+                    ${item.note ? `<div class="mt-2 text-sm text-stone-600 leading-relaxed bg-stone-50 p-3 rounded border border-stone-100 whitespace-pre-line select-text ${isDeleted ? 'line-through opacity-60' : ''}">${item.note}</div>` : ''}
                 </div>
             </div>`;
         }
@@ -715,7 +744,7 @@
                         <h2 class="text-xl font-bold text-stone-800">Day ${dayId.replace('day', '')} <span class="ml-2 text-xl font-bold text-stone-800">${currentDayData.location}</span></h2>
                     </div>
                     ${hasItems 
-                        ? currentDayData.items.map(renderItineraryItem).join('')
+                        ? currentDayData.items.map((item, index) => renderItineraryItem(item, `${dayId}_${index}`)).join('')
                         : '<div class="text-center py-10 text-stone-500 bg-white/50 rounded-xl border border-stone-200">此日期暫無行程資料</div>'
                     }
                 </div>`;
